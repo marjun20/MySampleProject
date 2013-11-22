@@ -1,0 +1,151 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+	class Members extends CI_Controller{
+		
+		public function __construct(){
+			parent::__construct();
+			
+		}
+		
+		public function index(){
+			$this->login();
+		}
+		
+		public function login(){
+			
+			$this->load->view('header');
+			$this->load->view('login');
+			$this->load->view('footer');
+	
+		}
+		
+		public function verifyLogin(){
+			
+			$this->load->view('header');
+			$this->load->library('form_validation');
+			
+			
+			$this->form_validation->set_rules('email','Email', 'required|trim|xss_clean|callback_validate_credentials');
+			$this->form_validation->set_rules('password','Password', 'required|md5|trim');
+			
+			if($this->form_validation->run()){
+					
+				$data = array('email' => $this->input->post('email'), 'is_logged_in' => 1);
+				$this->session->set_userdata($data);
+				
+				redirect('index.php/members/home');
+				
+			}else{
+				$this->load->view('login');
+			}
+			
+			$this->load->view('footer');
+				
+		}
+		
+		public function validate_credentials(){
+				
+			$this->load->model('model_users');
+			
+			if($this->model_users->can_log_in()){
+				
+				return true;
+			
+			}else{
+				
+				$this->form_validation->set_message('validate_credentials', 'Incorrect email or password');
+				return false;
+			}
+			
+		}
+		
+		public function logout(){
+			
+			$this->session->sess_destroy();
+			redirect('index.php/members/login');
+		}
+		
+		
+		public function signup(){
+				
+			$this->load->view('header');
+			$this->load->view('signup');
+			$this->load->view('footer');
+		}
+
+		
+		public function signup_validation(){
+			
+			$this->load->library('form_validation');
+			
+			$this->form_validation->set_rules('email', 'Email', 'required|trim|valid_email|is_unique[users_tbl.email]');
+			$this->form_validation->set_rules('password', 'Passowrd', 'required|trim|md5');
+			$this->form_validation->set_rules('repassword', 'Confirm Password', 'required|trim|matches[password]');
+			
+			$this->form_validation->set_message('is_unique', 'Your email address already exist!');
+			
+			if($this->form_validation->run()){
+				
+				$key = md5(uniqid());
+				
+				$this->load->library('email', array('mailtype' => 'html'));
+				$this->load->model('model_users');
+			
+				$this->email->from('jhun2x_19@yahoo.com', 'Marjun');
+				$this->email->to($this->input->post('email'));
+				$this->email->subject('Confirm your account.');
+				
+				$message = 'Thank you for joining us.';
+				$message .= "<a href='".base_url()."index.php/members/register_user/$key'>Click here</a> to verify your account.";
+				
+				$this->email->message($message);
+				
+						//if successfully added to the database
+						if($this->model_users->add_temporary_users($key)){
+						
+							//send email verification
+							if($this->email->send()){
+								
+								echo 'Check your email for verification';
+								
+							}else echo 'could not send the email';
+							
+						}else echo 'Problem adding  data';
+				
+				
+				
+			}else{
+				echo 'error';
+				$this->load->view('signup');
+			}
+			
+			
+		}
+
+
+		public function register_user($key){
+			
+			$this->load->model('model_users');
+			
+			if ($this->model_users->is_valid_key($key)){
+				
+				$this->model_users->add_user($key);
+				
+			}else echo 'Invalid User';
+			
+		}
+		
+		
+		public function home(){
+			
+			if($this->session->userdata('is_logged_in')){
+				
+				$this->load->view('header');
+				$this->load->view('members');
+				$this->load->view('footer');
+			}else{
+				
+				redirect('index.php/members/login');
+			}
+		}
+	}
